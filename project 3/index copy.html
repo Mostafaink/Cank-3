@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cank MVP – Single File (Frontend Only)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { scroll-behavior:smooth; }
+    html,body,#root { height:100%; }
+    body { background:#f5f5f5; color:#111827; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji; }
+    .hidden-until-ready { visibility:hidden; }
+  </style>
+</head>
+<body>
+  <div id="root" class="hidden-until-ready"></div>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useEffect, useState } = React;
+
+    const PRICE = { red: 20, white: 50, sky: 100, blue: 150, black: 200 };
+    const CARD_KEYS = ["red", "white", "sky", "blue", "black"];
+
+    function useEsc(onEsc) {
+      useEffect(() => {
+        const h = (e) => { if (e.key === "Escape") onEsc(); };
+        window.addEventListener("keydown", h);
+        return () => window.removeEventListener("keydown", h);
+      }, [onEsc]);
+    }
+
+    function Modal({ open, onClose, title, children, width = 560 }) {
+      useEsc(() => { if (open) onClose(); });
+      if (!open) return null;
+      return (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+          <div className="relative rounded-2xl bg-white shadow-2xl p-5 w-full" style={{ maxWidth: width }} onClick={(e) => e.stopPropagation()}>
+            <button aria-label="Close" className="absolute right-3 top-2 text-2xl" onClick={onClose}>×</button>
+            {title ? <h2 className="text-center font-extrabold text-xl mb-3">{title}</h2> : null}
+            <div className="text-center">{children}</div>
+          </div>
+        </div>
+      );
+    }
+
+    function Toast({ msg }) {
+      if (!msg) return null;
+      return <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 rounded-xl bg-neutral-900 text-white px-4 py-2 shadow-lg">{msg}</div>;
+    }
+
+    function Sidebar({ active, setActive }) {
+      const items = [
+        { id: "account", label: "ACCOUNT" },
+        { id: "cards", label: "Cards" },
+        { id: "collect", label: "Collect" },
+        { id: "credit", label: "CREDIT" },
+        { id: "settings", label: "SETTINGS" },
+      ];
+      return (
+        <aside className="w-64 bg-neutral-900 text-neutral-200 p-4">
+          <div className="font-extrabold text-2xl mb-2">Cank</div>
+          <nav className="flex flex-col gap-2">
+            {items.map((i) => (
+              <button
+                key={i.id}
+                className={`text-left rounded-xl px-3 py-2 font-semibold ${active === i.id ? "bg-white/15 outline outline-2 outline-blue-500 outline-offset-2" : "hover:bg-white/10"}`}
+                onClick={() => setActive(i.id)}
+              >
+                {i.label}
+              </button>
+            ))}
+          </nav>
+        </aside>
+      );
+    }
+
+    function sortDues(list) {
+      const order = { overdue: 0, due: 1, upcoming: 2, paid: 3 };
+      return [...list].sort((a, b) => {
+        const oa = order[a.status] ?? 2;
+        const ob = order[b.status] ?? 2;
+        if (oa !== ob) return oa - ob;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      });
+    }
+
+    function App() {
+      const [app, setApp] = useState({
+        user: { firstName: "John", fullName: "John Smith" },
+        account: { number: 1, currency: "EGP", symbol: "L.E." },
+        balances: { cards: 1234.56, collect: 567.89 },
+      });
+
+      const [offers, setOffers] = useState([
+        { id: "o1", amount: 140, enabledCount: 1, combinations: [{ label: "2R + 1S", counts: { red: 2, sky: 1 } }], schedules: ["daily", "weekly", "monthly"], scheduleEnabledCount: 1 },
+        { id: "o2", amount: 100, enabledCount: 1, combinations: [{ label: "5R", counts: { red: 5 } }, { label: "2W", counts: { white: 2 } }], schedules: ["daily", "weekly", "monthly"], scheduleEnabledCount: 1 },
+        { id: "o3", amount: 180, enabledCount: 1, combinations: [
+          { label: "1S + 4R", counts: { sky: 1, red: 4 } },
+          { label: "4R + 1S", counts: { red: 4, sky: 1 } },
+          { label: "9R", counts: { red: 9 } },
+          { label: "7R + 1W", counts: { red: 7, white: 1 } },
+          { label: "1W + 7R", counts: { white: 1, red: 7 } },
+          { label: "2R + 3W", counts: { red: 2, white: 3 } },
+        ], schedules: ["daily", "weekly", "monthly"], scheduleEnabledCount: 1 },
+      ]);
+      const hasOffers = offers.length > 0;
+
+      const [active, setActive] = useState("account");
+      const [toast, setToast] = useState("");
+      const showToast = (m) => { setToast(m); setTimeout(() => setToast(""), 1400); };
+
+      const [accountOpen, setAccountOpen] = useState(false);
+      const [cashoutOpen, setCashoutOpen] = useState(false);
+      const [recvOpen, setRecvOpen] = useState(false);
+
+      const [activateOpen, setActivateOpen] = useState(false);
+      const [recheckOpen, setRecheckOpen] = useState(false);
+      const [cashOpen, setCashOpen] = useState(false);
+      const [moreOpen, setMoreOpen] = useState(false);
+      const [selectMoreOpen, setSelectMoreOpen] = useState(false);
+      const [selectTimeOpen, setSelectTimeOpen] = useState(false);
+      const [extendOpen, setExtendOpen] = useState(false);
+
+      const rotateOffer = () => setOffers((prev) => (prev.length > 1 ? [...prev.slice(1), prev[0]] : prev));
+
+      const unlockMoreOptions = () => setOffers(prev => {
+        if (!prev.length) return prev;
+        const first = prev[0];
+        const max = (first.combinations?.length || 1);
+        const current = Number(first.enabledCount || 1);
+        const next = Math.min(max, current + 1);
+        if (next === current) return prev;
+        return [{ ...first, enabledCount: next }, ...prev.slice(1)];
+      });
+
+      const unlockMoreTime = () => setOffers(prev => {
+        if (!prev.length) return prev;
+        const first = prev[0];
+        const max = (first.schedules?.length || 1);
+        const current = Number(first.scheduleEnabledCount || 1);
+        const next = Math.min(max, current + 1);
+        if (next === current) return prev;
+        return [{ ...first, scheduleEnabledCount: next }, ...prev.slice(1)];
+      });
+
+      const openCreditModal = (which) => {
+        setActivateOpen(false);
+        setRecheckOpen(false);
+        setCashOpen(false);
+        setMoreOpen(false);
+        setSelectMoreOpen(false);
+        setSelectTimeOpen(false);
+        setExtendOpen(false);
+        if (which === 'activate') setActivateOpen(true);
+        else if (which === 'recheck') setRecheckOpen(true);
+        else if (which === 'cash') setCashOpen(true);
+        else if (which === 'more') setMoreOpen(true);
+        else if (which === 'selectMore') setSelectMoreOpen(true);
+        else if (which === 'selectTime') setSelectTimeOpen(true);
+        else if (which === 'extend') setExtendOpen(true);
+      };
+
+      const [color, setColor] = useState("");
+      const [qty, setQty] = useState(1);
+      const [confirmOpen, setConfirmOpen] = useState(false);
+      const [successOpen, setSuccessOpen] = useState(false);
+
+      const [dues, setDues] = useState([]);
+
+      const cur = offers[0] || null;
+      const [selectedComboIdx, setSelectedComboIdx] = useState(null);
+      const [schedule, setSchedule] = useState("");
+      useEffect(() => {
+        if (active === "check" && cur) {
+          setSelectedComboIdx(0);
+          const firstEnabledSchedule = (cur.schedules || [])[0] || "daily";
+          setSchedule(firstEnabledSchedule);
+        }
+      }, [active, cur]);
+
+      const fmt = (n) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      const addDuesFromCombo = (combo, scheduleChoice, offerId, offerAmount) => {
+        const intervalDays = scheduleChoice === "daily" ? 1 : scheduleChoice === "weekly" ? 7 : 30;
+        const today = new Date();
+        const sortedEntries = Object.entries(combo.counts).sort(([a], [b]) => a.localeCompare(b));
+        const rows = [];
+        let offset = 0;
+        sortedEntries.forEach(([k, v]) => {
+          const card = k; const n = Number(v || 0);
+          for (let i = 0; i < n; i++) {
+            const dueDate = new Date(today); dueDate.setDate(today.getDate() + offset);
+            rows.push({
+              id: `due-${Date.now()}-${offerId}-${card}-${i}-${Math.random().toString(36).slice(2,6)}`,
+              dueDate: dueDate.toISOString().slice(0, 10),
+              amount: PRICE[card],
+              card,
+              status: offset === 0 ? "due" : "upcoming",
+              offerId,
+              offerAmount,
+              schedule: scheduleChoice,
+            });
+            offset += intervalDays;
+          }
+        });
+        setDues((prev) => sortDues([...prev, ...rows]));
+      };
+
+      return (
+        <div className="min-h-screen bg-neutral-100 text-neutral-900">
+          <div className="flex min-h-screen">
+            <Sidebar active={active} setActive={setActive} />
+            <main className="flex-1 bg-white">
+
+              {active === "account" && (
+                <div className="max-w-4xl mx-auto p-6 text-center">
+                  <h1 className="text-4xl font-extrabold">Hi {app.user.firstName}</h1>
+                  <p className="text-neutral-500">Welcome to Cank</p>
+                  <div className="h-10" />
+                  <button className="px-4 py-3 rounded-xl bg-blue-600 text-white font-bold" onClick={() => setAccountOpen(true)}>Account</button>
+
+                  <Modal open={accountOpen} onClose={() => setAccountOpen(false)} title="Account" width={680}>
+                    <div className="space-y-1">
+                      <div className="font-extrabold text-lg">{app.user.fullName}</div>
+                      <div className="text-neutral-600">Account # {app.account.number}</div>
+                      <div className="text-neutral-600">Account Currency: {app.account.currency}</div>
+                    </div>
+                    <div className="mt-4 grid gap-3">
+                      <button className="rounded-xl py-3 font-bold bg-green-600 text-white" onClick={() => { setAccountOpen(false); setCashoutOpen(true); }}>Available Cash-out</button>
+                      <button className="rounded-xl py-3 font-bold bg-orange-600 text-white" onClick={() => { setAccountOpen(false); setActive("dues"); }}>Dues</button>
+                      <button className="rounded-xl py-3 font-bold bg-purple-600 text-white" onClick={() => { setAccountOpen(false); setActive("locations"); }}>Locations</button>
+                    </div>
+                  </Modal>
+
+                  <Modal open={cashoutOpen} onClose={() => setCashoutOpen(false)} title="Available Cash-out" width={680}>
+                    <div className="space-y-2">
+                      <div className="text-5xl font-black text-green-600">{app.account.symbol} {(app.balances.cards + app.balances.collect).toFixed(2)}</div>
+                      <div className="text-neutral-600">Cards: {app.account.symbol} {fmt(app.balances.cards)} · Collect: {app.account.symbol} {fmt(app.balances.collect)}</div>
+                      <div className="grid gap-3 mt-2">
+                        <button className="rounded-xl py-3 font-bold bg-blue-600 text-white">Bank Transfer</button>
+                        <button className="rounded-xl py-3 font-bold bg-purple-600 text-white">Mobile Wallet</button>
+                        <button className="rounded-xl py-3 font-bold bg-orange-600 text-white">Cash Pickup</button>
+                      </div>
+                    </div>
+                  </Modal>
+                </div>
+              )}
+
+              {active === "cards" && (
+                <div className="max-w-4xl mx-auto p-6 text-center">
+                  <div className="text-6xl font-black">{app.account.symbol} {fmt(app.balances.cards)}</div>
+                  <div className="h-3" />
+                  <button className="rounded-xl px-4 py-3 font-bold bg-blue-600 text-white" onClick={() => setActive("cards-recharge")}>Recharge Cards</button>
+                </div>
+              )}
+
+              {active === "cards-recharge" && (
+                <div className="max-w-3xl mx-auto p-6">
+                  <h2 className="text-center text-2xl font-extrabold mb-3">Cank</h2>
+                  <div className="flex flex-wrap gap-3 justify-center mb-4">
+                    {CARD_KEYS.map((k) => (
+                      <button key={k} className={`w-28 h-36 rounded-xl border-2 flex items-center justify-center font-extrabold text-white ${k === "white" ? "bg-neutral-100 text-neutral-800 border-neutral-300" : k === "red" ? "bg-red-500" : k === "sky" ? "bg-sky-400" : k === "blue" ? "bg-blue-600" : "bg-neutral-900"} ${color === k ? "outline outline-2 outline-blue-500 outline-offset-2" : ""}`} onClick={() => setColor(k)}>
+                        <div className="text-center">
+                          <div className="uppercase">{k}</div>
+                          <div>{PRICE[k]}</div>
+                          <div>L.E.</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="max-w-lg mx-auto">
+                    <label className="font-semibold text-sm">Select Card Color:</label>
+                    <select className="w-full mt-1 rounded-xl border p-2" value={color} onChange={(e) => setColor(e.target.value)}>
+                      <option value="">Choose a card color</option>
+                      {CARD_KEYS.map((k) => (
+                        <option key={k} value={k}>{k.toUpperCase()} - {PRICE[k]} L.E.</option>
+                      ))}
+                    </select>
+                    <div className="h-3" />
+                    <label className="font-semibold text-sm">Number of Cards:</label>
+                    <select className="w-full mt-1 rounded-xl border p-2" value={qty} onChange={(e) => setQty(Number(e.target.value))}>
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>{n} card{n > 1 ? "s" : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="text-center rounded-xl border p-3 my-3">
+                    {color ? `${qty} ${String(color).toUpperCase()} card${qty > 1 ? "s" : ""} = ${app.account.symbol} ${(PRICE[color] * qty).toFixed(2)}` : "—"}
+                  </div>
+
+                  <div className="flex gap-2 justify-center">
+                    <button className="rounded-xl px-4 py-2" onClick={() => setActive("cards")}>Cancel</button>
+                    <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white disabled:opacity-50" disabled={!color || qty <= 0} onClick={() => setConfirmOpen(true)}>Recharge</button>
+                  </div>
+
+                  <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Confirm Recharge" width={520}>
+                    <div className="space-y-3">
+                      <div className="rounded-xl border p-3">{qty} {String(color).toUpperCase()} card{qty > 1 ? "s" : ""} = {app.account.symbol} {(color ? PRICE[color] * qty : 0).toFixed(2)}</div>
+                      <div className="flex gap-2 justify-center">
+                        <button className="rounded-xl px-4 py-2" onClick={() => setConfirmOpen(false)}>Back</button>
+                        <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => {
+                          if (!color) return;
+                          const total = PRICE[color] * qty;
+                          setApp((p) => ({ ...p, balances: { ...p.balances, cards: Number(p.balances.cards) + total } }));
+                          setConfirmOpen(false);
+                          setSuccessOpen(true);
+                        }}>Confirm</button>
+                      </div>
+                    </div>
+                  </Modal>
+
+                  <Modal open={successOpen} onClose={() => { setSuccessOpen(false); setActive("cards"); setColor(""); setQty(1); }} title="Recharge Successful" width={520}>
+                    <div className="space-y-3">
+                      <div className="rounded-xl border p-3">Added {qty} {String(color).toUpperCase()} card{qty > 1 ? "s" : ""} · Total {app.account.symbol} {(color ? PRICE[color] * qty : 0).toFixed(2)}</div>
+                      <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => { setSuccessOpen(false); setActive("cards"); setColor(""); setQty(1); }}>Back to Cards</button>
+                    </div>
+                  </Modal>
+                </div>
+              )}
+
+              {active === "collect" && (
+                <div className="max-w-4xl mx-auto p-6 text-center">
+                  <div className="text-6xl font-black">{app.account.symbol} {fmt(app.balances.collect)}</div>
+                  <div className="h-3" />
+                  <button className="rounded-xl px-4 py-3 font-bold bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed" disabled={!hasOffers} onClick={() => setRecvOpen(true)}>Receivables</button>
+                  {!hasOffers && <div className="mt-2 text-sm text-neutral-500">No receivables available</div>}
+
+                  <Modal open={recvOpen} onClose={() => setRecvOpen(false)} title="Receivables" width={520}>
+                    <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => { setRecvOpen(false); setActive("check"); }}>Check</button>
+                  </Modal>
+                </div>
+              )}
+
+              {active === "credit" && (
+                <div className="max-w-4xl mx-auto p-6 text-center">
+                  <h1 className="text-3xl font-extrabold mb-3">Credit</h1>
+                  <button className="rounded-xl px-4 py-3 font-bold bg-blue-600 text-white" onClick={() => openCreditModal('activate')}>Check</button>
+
+                  <Modal open={activateOpen} onClose={() => setActivateOpen(false)} title="Activate Receivables" width={480}>
+                    <div className="flex gap-2 justify-center">
+                      <button className="rounded-xl px-4 py-2 font-bold bg-green-600 text-white" onClick={() => { setActivateOpen(false); setActive("check"); }}>Accept</button>
+                      <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => { openCreditModal('recheck'); }}>Recheck</button>
+                    </div>
+                  </Modal>
+
+                  <Modal open={recheckOpen} onClose={() => setRecheckOpen(false)} title="Re-activate Receivables" width={480}>
+                    <div className="flex gap-2 justify-center">
+                      <button className="rounded-xl px-4 py-2 font-bold bg-green-600 text-white" onClick={() => { setRecheckOpen(false); rotateOffer(); setActive("check"); }}>Accept</button>
+                      <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => { openCreditModal('cash'); }}>Recheck</button>
+                    </div>
+                  </Modal>
+
+                  <Modal open={cashOpen} onClose={() => setCashOpen(false)} title="Cash" width={480}>
+                    <div className="space-y-3">
+                      <div className="text-neutral-600">Demo amount: <span className="font-extrabold">{app.account.symbol} {Number(75).toFixed(2)}</span></div>
+                      <div className="flex gap-2 justify-center">
+                        <button className="rounded-xl px-4 py-2 font-bold bg-green-600 text-white" onClick={() => {
+                          setCashOpen(false);
+                          setApp(p => ({ ...p, balances: { ...p.balances, cards: p.balances.cards + 75 } }));
+                          setActive("cards");
+                          showToast(`${app.account.symbol} ${Number(75).toFixed(2)} added to Cards`);
+                        }}>Accept</button>
+                        <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => { openCreditModal('more'); }}>Recheck</button>
+                      </div>
+                    </div>
+                  </Modal>
+
+                  <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title="More Options" width={480}>
+                    <div className="space-y-3">
+                      <div className="text-neutral-600"></div>
+                      <div className="flex gap-2 justify-center">
+                        <button className="rounded-xl px-4 py-2 font-bold bg-green-600 text-white" onClick={() => {
+                          unlockMoreOptions();
+                          setMoreOpen(false);
+                          setActive('collect');
+                          setRecvOpen(true);
+                        }}>Accept</button>
+                        <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => { openCreditModal('selectMore'); }}>Recheck</button>
+                      </div>
+                    </div>
+                  </Modal>
+
+                  <Modal open={selectMoreOpen} onClose={() => setSelectMoreOpen(false)} title="Select More Options" width={480}>
+                    <div className="space-y-3">
+                      <div className="text-neutral-600"></div>
+                      <div className="flex gap-2 justify-center">
+                        <button className="rounded-xl px-4 py-2 font-bold bg-green-600 text-white" onClick={() => {
+                          unlockMoreOptions();
+                          setSelectMoreOpen(false);
+                          setActive('collect');
+                          setRecvOpen(true);
+                        }}>Accept</button>
+                        <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => { openCreditModal('selectTime'); }}>Recheck</button>
+                      </div>
+                    </div>
+                  </Modal>
+
+                  <Modal open={selectTimeOpen} onClose={() => setSelectTimeOpen(false)} title="Select More Time" width={480}>
+                    <div className="space-y-3">
+                      <div className="text-neutral-600"></div>
+                      <div className="flex gap-2 justify-center">
+                        <button className="rounded-xl px-4 py-2 font-bold bg-green-600 text-white" onClick={() => { unlockMoreTime(); setSelectTimeOpen(false); setActive('collect'); setRecvOpen(true); }}>Accept</button>
+                        <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => { openCreditModal('extend'); }}>Recheck</button>
+                      </div>
+                    </div>
+                  </Modal>
+
+                  <Modal open={extendOpen} onClose={() => setExtendOpen(false)} title="Extend Time" width={480}>
+                    <div className="space-y-3">
+                      <div className="text-neutral-600"></div>
+                      <div className="flex gap-2 justify-center">
+                        <button className="rounded-xl px-4 py-2 font-bold bg-green-600 text-white" onClick={() => { setExtendOpen(false); setActive('dues'); }}>Accept</button>
+                        <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => { openCreditModal('activate'); }}>Recheck</button>
+                      </div>
+                    </div>
+                  </Modal>
+                </div>
+              )}
+
+              {active === "check" && (
+                <div className="max-w-3xl mx-auto p-6">
+                  {!cur ? (
+                    <div className="text-center space-y-3">
+                      <div className="text-5xl font-black text-green-600">{app.account.symbol} 0.00</div>
+                      <div className="text-neutral-500">No receivables offer available</div>
+                      <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => setActive("collect")}>Back to Collect</button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-center">
+                        <div className="text-6xl font-black text-green-600">{app.account.symbol} {cur.amount.toFixed(2)}</div>
+                        <div className="text-neutral-500">Available to collect</div>
+                      </div>
+
+                      <div className="font-extrabold mt-4 mb-2">Choose Combination</div>
+                      <div className="flex flex-col gap-3">
+                        {cur.combinations.map((c, idx) => {
+                          const enabled = idx < (cur.enabledCount || 1);
+                          return (
+                            <button
+                              key={c.label}
+                              className={`w-full rounded-xl border p-3 flex items-center justify-between ${idx === (selectedComboIdx ?? 0) ? "ring-2 ring-neutral-900" : ""} ${enabled ? "bg-white" : "opacity-50 grayscale cursor-not-allowed"}`}
+                              onClick={() => { if (enabled) setSelectedComboIdx(idx); }}
+                            >
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {Object.entries(c.counts).map(([k, v]) => (
+                                  <span key={k} className="inline-flex items-center gap-2 rounded-full border px-3 py-1 font-semibold">
+                                    <span className="w-5 h-5 rounded-md" style={{ background: k === "white" ? "#f3f4f6" : k === "red" ? "#ef4444" : k === "sky" ? "#22c1f1" : k === "blue" ? "#2563eb" : "#111827" }} />
+                                    {v} {k.toUpperCase()}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="font-extrabold">{c.label}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="font-extrabold mt-4 mb-2">Repayment Schedule</div>
+                      <div className="grid grid-cols-3 gap-3">
+                        {cur.schedules.map((s, idx) => {
+                          const sEnabled = idx < (cur.scheduleEnabledCount || 1);
+                          return (
+                            <button
+                              key={s}
+                              className={`rounded-xl border py-6 font-bold ${schedule === s ? "ring-2 ring-neutral-900" : ""} ${sEnabled ? "" : "opacity-50 grayscale cursor-not-allowed"}`}
+                              onClick={() => { if (sEnabled) setSchedule(s); }}
+                            >
+                              {s.toUpperCase()}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        className="mt-4 w-full rounded-xl py-3 font-bold bg-green-600 text-white disabled:opacity-50"
+                        disabled={selectedComboIdx == null || selectedComboIdx >= (cur.enabledCount || 1) || !schedule}
+                        onClick={() => {
+                          setApp((p) => ({ ...p, balances: { ...p.balances, collect: p.balances.collect + cur.amount } }));
+                          const chosen = cur.combinations[selectedComboIdx ?? 0];
+                          addDuesFromCombo(chosen, schedule, cur.id, cur.amount);
+                          setOffers((prev) => (prev.length > 0 ? prev.slice(1) : prev));
+                          setActive("collect");
+                          showToast(`${app.account.symbol} ${cur.amount.toFixed(2)} added to Collect`);
+                        }}
+                      >
+                        ACCEPT
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {active === "dues" && (
+                <DuesPage app={app} setActive={setActive} dues={dues} setDues={setDues} />
+              )}
+
+              {active === "locations" && (
+                <div className="max-w-4xl mx-auto p-6 text-center">
+                  <h1 className="text-3xl font-extrabold">Locations</h1>
+                  <button className="mt-3 rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => setActive("account")}>Back to Account</button>
+                </div>
+              )}
+
+              {active === "settings" && (
+                <div className="max-w-4xl mx-auto p-6 text-center">
+                  <h1 className="text-3xl font-extrabold">Settings</h1>
+                </div>
+              )}
+
+            </main>
+          </div>
+          <Toast msg={toast} />
+        </div>
+      );
+    }
+
+    function DuesPage({ app, setActive, dues, setDues }) {
+      const byOffer = dues.reduce((acc, d) => {
+        const key = d.offerId || 'unknown';
+        (acc[key] ||= []).push(d);
+        return acc;
+      }, {});
+      const entries = Object.entries(byOffer);
+
+      return (
+        <div className="max-w-4xl mx-auto p-6">
+          <div className="text-center mb-4">
+            <h1 className="text-3xl font-extrabold">Dues</h1>
+            <p className="text-neutral-500 text-sm">Simple timeline, grouped by offer. Tap a group to view details.</p>
+          </div>
+          {entries.length === 0 ? (
+            <div className="text-center text-neutral-500">No dues yet</div>
+          ) : (
+            <div className="space-y-6">
+              {entries.map(([offerId, items]) => {
+                const sorted = sortDues(items);
+                const meta = sorted[0] || {};
+                const firstDate = new Date(sorted[0]?.dueDate || Date.now());
+                return (
+                  <section key={offerId} className="rounded-2xl border p-4">
+                    <button className="w-full text-left" onClick={() => setActive('due-details-' + offerId)}>
+                      <div className="flex items-center justify-between">
+                        <div className="font-extrabold">Offer {meta.offerAmount ? `${app.account.symbol} ${Number(meta.offerAmount).toFixed(2)}` : offerId}</div>
+                        <div className="text-xs text-neutral-500">Schedule: {meta.schedule ? String(meta.schedule).toUpperCase() : '—'}</div>
+                      </div>
+                      <div className="text-xs text-neutral-500">First due: {firstDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+                      <div className="mt-3 overflow-x-auto">
+                        <div className="flex items-center gap-6 px-1 py-2">
+                          {sorted.map((d, i) => {
+                            const dot = d.status === 'paid' ? 'bg-green-600' : d.status === 'overdue' ? 'bg-red-600' : 'bg-blue-600';
+                            const tip = new Date(d.dueDate).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+                            const cardLetter = (d.card || '').slice(0,1).toUpperCase();
+                            return (
+                              <div key={d.id} className="flex flex-col items-center min-w-[48px]">
+                                <div className="h-2 w-10 rounded-full bg-neutral-200" />
+                                <span title={tip} className={`mt-1 h-3 w-3 rounded-full ${dot}`}></span>
+                                <div className="mt-1 text-[10px] text-neutral-500">{i+1}</div>
+                                <div className="mt-1 px-2 py-0.5 text-[10px] font-bold rounded border uppercase">{cardLetter}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </button>
+                  </section>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-6 flex justify-center">
+            <button className="rounded-xl px-4 py-2 font-bold bg-blue-600 text-white" onClick={() => setActive("account")}>Back to Account</button>
+          </div>
+        </div>
+      );
+    }
+
+    const rootEl = document.getElementById("root");
+    const root = ReactDOM.createRoot(rootEl);
+    root.render(<App />);
+    rootEl.classList.remove("hidden-until-ready");
+  </script>
+</body>
+</html>
