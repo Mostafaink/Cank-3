@@ -1,0 +1,137 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f0f4f8;
+  color: #333;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+}
+
+.container {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 32px;
+  width: 100%;
+  max-width: 560px;
+}
+
+h1 {
+  font-size: 2rem;
+  margin-bottom: 24px;
+  color: #2d6a4f;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.add-section {
+  margin-bottom: 24px;
+}
+
+#add-form {
+  display: flex;
+  gap: 8px;
+}
+
+#new-title {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid #d0e4da;
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#new-title:focus {
+  border-color: #2d6a4f;
+}
+
+button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+button[type="submit"] {
+  background: #2d6a4f;
+  color: #fff;
+}
+
+button[type="submit"]:hover {
+  background: #1b4332;
+}
+
+.status {
+  min-height: 20px;
+  font-size: 0.875rem;
+  margin-bottom: 12px;
+  color: #e63946;
+}
+
+.status.success {
+  color: #2d6a4f;
+}
+
+#items-list {
+  list-style: none;
+}
+
+#items-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e8f0eb;
+}
+
+#items-list li:last-child {
+  border-bottom: none;
+}
+
+#items-list .item-title {
+  flex: 1;
+  font-size: 1rem;
+}
+
+#items-list .item-title.completed {
+  text-decoration: line-through;
+  color: #999;
+}
+
+#items-list input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #2d6a4f;
+  cursor: pointer;
+}
+
+.btn-delete {
+  background: #e63946;
+  color: #fff;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+}
+
+.btn-delete:hover {
+  background: #c1121f;
+}
+
+.empty-message {
+  text-align: center;
+  color: #aaa;
+  font-style: italic;
+  padding: 20px 0;
+}
