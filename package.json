@@ -1,0 +1,11 @@
+{
+  "name": "cank",
+  "version": "1.0.0",
+  "description": "Cank full-stack application",
+  "scripts": {
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "test": "cd backend && npm test"
+  }
+}

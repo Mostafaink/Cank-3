@@ -1,0 +1,11 @@
+{
+  "name": "cank-frontend",
+  "version": "1.0.0",
+  "description": "Cank frontend application",
+  "scripts": {
+    "start": "npx serve -s . -l 3000"
+  },
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}
